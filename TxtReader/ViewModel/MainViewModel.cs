@@ -41,26 +41,62 @@ namespace TxtReader.ViewModel
         {
             OpenFileDialog dialog = new OpenFileDialog
             {
-                Filter = "Text files (*.txt)|*.txt"
+                Filter = "Text files (*.txt)|*.txt" // txt 파일만 선택 가능
             };
 
             if (dialog.ShowDialog() == true)
             {
                 string path = dialog.FileName;
-
                 string content = ReadTextSmart(path);
+                long size = new FileInfo(path).Length;
 
+                // 이미 등록된 파일인지 확인
+                var existingFile = Files.FirstOrDefault(f => f.Title == Path.GetFileName(path));
+                if (existingFile != null)
+                {
+                    // 내용이나 크기가 다르면 업데이트 가능
+                    if (existingFile.Size != size || existingFile.Content != content)
+                    {
+                        // WPF MessageBox로 Yes/No 확인
+                        var result = MessageBox.Show(
+                            $"{existingFile.Title} 파일이 이미 존재합니다.\n새로운 파일로 업데이트 하시겠습니까?",
+                            "파일 업데이트 확인",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question
+                        );
+
+                        if (result == MessageBoxResult.Yes)
+                        {
+                            // 기존 파일 덮어쓰기
+                            existingFile.Content = content;
+                            existingFile.Size = size;
+                            existingFile.Path = path;
+
+                            // 버전 업데이트 (예: 마지막 숫자 1 증가)
+                            existingFile.Version = IncrementVersion(existingFile.Version);
+
+                            AddLog(existingFile.Title, "Updated", $"버전 {existingFile.Version}로 업데이트됨");
+                        }
+                    }
+
+                    SelectedFile = existingFile;
+                    return; // 이미 존재하는 경우, 새 파일 추가는 안 함
+                }
+
+                // 새 파일 등록
                 FileModel file = new()
                 {
                     Title = Path.GetFileName(path),
                     Content = content,
                     Size = new FileInfo(path).Length,
-                    Path = path
+                    Path = path,
+                    Version = "0.0.1"
                 };
 
                 Files.Add(file);
                 SelectedFile = file;
                 SetupFileWatcher(path);
+                AddLog(file.Title, "Added", "새 파일 등록됨");
             }
         }
 
@@ -210,6 +246,25 @@ namespace TxtReader.ViewModel
                 });
             });
         }
+
+
+        // 버전 증가 함수
+        private string IncrementVersion(string version)
+        {
+            var parts = version.Split('.');
+            if (parts.Length == 3 &&
+                int.TryParse(parts[0], out int major) &&
+                int.TryParse(parts[1], out int minor) &&
+                int.TryParse(parts[2], out int patch))
+            {
+                patch++; // 마지막 숫자 증가
+                return $"{major}.{minor}.{patch:D1}";
+            }
+
+            // 포맷 이상하면 기본값
+            return "0.0.1";
+        }
+
 
     }
 }
