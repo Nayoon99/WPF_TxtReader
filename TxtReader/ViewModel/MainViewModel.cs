@@ -126,10 +126,10 @@ namespace TxtReader.ViewModel
 
         private async void OnFileChanged(object sender, FileSystemEventArgs e)
         {
-            Debug.WriteLine($"CHANGED: {e.FullPath}");
-
             if (SelectedFile == null || e.FullPath != SelectedFile.Path)
                 return;
+
+            AddLog(e.FullPath, "Changed", "파일 내용이 수정됨");
 
             await Task.Delay(300);
 
@@ -145,14 +145,15 @@ namespace TxtReader.ViewModel
 
         private async void OnFileRenamed(object sender, RenamedEventArgs e)
         {
-            Debug.WriteLine($"RENAMED: {e.OldFullPath} → {e.FullPath}");
 
-            if (SelectedFile == null)
+            if (SelectedFile == null || e.FullPath != SelectedFile.Path)
                 return;
 
-            // 최종 파일명이 우리가 보고 있던 파일인지 확인
-            if (e.FullPath != SelectedFile.Path)
-                return;
+            AddLog(
+                e.FullPath,
+                "Renamed",
+                $"{Path.GetFileName(e.OldFullPath)} → {Path.GetFileName(e.FullPath)}"
+            );
 
             await Task.Delay(300);
 
@@ -190,6 +191,25 @@ namespace TxtReader.ViewModel
         }
 
 
+        // ======= 로그 저장 =======
+        // 로그 저장
+        public ObservableCollection<ChangeLogModel> ChangeLogs { get; } = new ObservableCollection<ChangeLogModel>();
+
+        // 로그 추가 메서드
+        private void AddLog(string fileName, string changeType, string message)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                // 최신 로그가 위에 오도록 설정
+                ChangeLogs.Insert(0, new ChangeLogModel
+                {
+                    Time = DateTime.Now,
+                    FileName = Path.GetFileName(fileName),
+                    ChangeType = changeType,
+                    Message = message
+                });
+            });
+        }
 
     }
 }
